@@ -1,3 +1,9 @@
+###
+  @name: WebNoSQL
+  @author: Konstantin Timokhin
+  @email: theifish@gmail.com
+###
+
 class ObjectID
   constructor: (@val = undefined) ->
     if @val == undefined
@@ -7,6 +13,9 @@ class ObjectID
 
   getTimestamp: ->
     return parseInt(@val.substr(0,8), 16)
+
+  toSting: ->
+    return @val.toString()
 
   valueOf: ->
     return @val.toString()
@@ -221,7 +230,7 @@ class WebNoSQL_Query
                   ids = ""
                   for key,val of items
                     ids+= "," if ids != ""
-                    ids+= "'" + val._id + "'"
+                    ids+= "'" + val._id.toString() + "'"
                   sql = "DELETE FROM " + self.$name + " WHERE _id in (" + ids + ")"
                   tx.executeSql(
                     sql,
@@ -275,7 +284,7 @@ class WebNoSQL_Query
                         delete data._id
                       else
                         data = o.data
-                      sql = "UPDATE " + self.$name + " SET data='" + JSON.stringify(data) + "' WHERE _id='" + _id + "'"
+                      sql = "UPDATE " + self.$name + " SET data='" + JSON.stringify(data) + "' WHERE _id='" + _id.toString() + "'"
                       tx.executeSql(
                         sql,
                         [],
@@ -364,33 +373,23 @@ class WebNoSQL_DB
     catch e
       log.error('Unable to open db "' + @$name + '"')
 
-  $sql_call: (sql, ret = true, cb = undefined) ->
+  collections: (cb) ->
     if @$db != undefined
       @$db.transaction (tx) ->
         tx.executeSql(
-          sql,
+          "SELECT * FROM sqlite_master WHERE type='table'",
           [],
           (tx, results) ->
-            items = undefined
-            if ret
-              items = []
-              if results && results.rows.length
-                for i in [0..results.rows.length-1]
-                  items.push(results.rows.item(i))
+            items = []
+            if results && results.rows.length
+              for i in [0..results.rows.length-1]
+                items.push(results.rows.item(i).tbl_name)
             cb(false, items) if cb!=undefined
           (error) ->
             cb(true) if cb != undefined
         )
-
-  tables: (cb) ->
-    @$sql_call "SELECT * FROM sqlite_master WHERE type='table'", (error, items) ->
-      if error
-        cb(error)
-      else
-        res_items = []
-        for item in items
-          res_items.push(item.tbl_name)
-        cb(false, res_items)
+    else
+      cb(true) if cb != undefined
 
   collection: (name) ->
     new WebNoSQL_Query(@, name)
